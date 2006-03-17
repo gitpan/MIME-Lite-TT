@@ -2,7 +2,7 @@ package MIME::Lite::TT;
 
 use strict;
 use vars qw($VERSION);
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 use MIME::Lite;
 use Template;
@@ -19,6 +19,10 @@ sub new {
 					  RELATIVE => 1,
 					  %$tmpl_options,
 					 );
+        if ( $options{TmplUpgrade}) {
+            $config{LOAD_TEMPLATES} = [MIME::Lite::TT::Provider->new(\%config)];
+        }
+
 		my $tt = Template->new(\%config);
 		my $tmpl_params = delete $options{TmplParams} || {};
 		$tt->process($template, $tmpl_params, \$options{Data})
@@ -38,6 +42,22 @@ sub _before_process {
 sub _after_process {
 	my $class = shift;
 	@_;
+}
+
+package MIME::Lite::TT::Provider;
+use strict;
+use base qw(Template::Provider);
+sub _load {
+    my $self = shift;
+    my ($data, $error) = $self->SUPER::_load(@_);
+    if(defined $data) {
+        $data->{text} = utf8_upgrade($data->{text});
+    }
+    return ($data, $error);
+}
+sub utf8_upgrade {
+    my @list = map pack('U*', unpack 'U0U*', $_), @_;
+    return wantarray ? @list : $list[0];
 }
 
 1;
@@ -81,6 +101,10 @@ This parameter must be the reference of hash.
 
 configuration of Template::Toolkit is set to this option.
 ABSOLUTE and RELATIVE are set to 1 by the default.
+
+=head2 TmplUpgrade
+
+template is force upgraded. (means utf-8 flag turns on)
 
 =head1 SAMPLE
 
